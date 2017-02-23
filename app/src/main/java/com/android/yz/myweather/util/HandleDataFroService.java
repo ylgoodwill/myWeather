@@ -5,8 +5,12 @@ import android.text.TextUtils;
 import com.android.yz.myweather.database.City;
 import com.android.yz.myweather.database.Country;
 import com.android.yz.myweather.database.Province;
+import com.android.yz.myweather.gson.Weather;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.util.List;
 
@@ -32,7 +36,7 @@ public class HandleDataFroService {
         return false;
     }
 
-    public static boolean handleCityData(String response,int provinceId) {
+    public static boolean handleCityData(String response, int provinceId) {
         if (!TextUtils.isEmpty(response)) {
             Gson gson = new Gson();
             List<City> citys = gson.fromJson(response, new TypeToken<List<City>>() {
@@ -50,7 +54,7 @@ public class HandleDataFroService {
         return false;
     }
 
-    public static boolean handleCountryData(String response,int cityId) {
+    public static boolean handleCountryData(String response, int cityId) {
         if (!TextUtils.isEmpty(response)) {
             Gson gson = new Gson();
             List<Country> countries = gson.fromJson(response, new TypeToken<List<Country>>() {
@@ -66,4 +70,18 @@ public class HandleDataFroService {
         }
         return false;
     }
+
+    public static Weather handleWeatherData(String response) {
+        try {
+            JSONObject jsonObject = new JSONObject(response);
+            JSONArray jsonArray = jsonObject.getJSONArray("HeWeather");
+            String content = jsonArray.getJSONObject(0).toString();
+            Weather weather = new Gson().fromJson(content, Weather.class);
+            return weather;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
 }
