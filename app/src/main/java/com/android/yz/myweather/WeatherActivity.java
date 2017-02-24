@@ -1,11 +1,14 @@
 package com.android.yz.myweather;
 
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -15,6 +18,7 @@ import com.android.yz.myweather.gson.Forecast;
 import com.android.yz.myweather.gson.Weather;
 import com.android.yz.myweather.util.HandleDataFroService;
 import com.android.yz.myweather.util.HttpUtil;
+import com.bumptech.glide.Glide;
 
 import java.io.IOException;
 
@@ -35,10 +39,15 @@ public class WeatherActivity extends AppCompatActivity {
     private TextView comfortText;
     private TextView carWashText;
     private TextView sportText;
+    private ImageView imageView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (Build.VERSION.SDK_INT >= 21) {
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+            getWindow().setStatusBarColor(Color.TRANSPARENT);
+        }
         setContentView(R.layout.activity_weather);
         weatherLayout = (ScrollView) findViewById(R.id.weather_layout);
         titleCity = (TextView) findViewById(R.id.title_city);
@@ -51,9 +60,16 @@ public class WeatherActivity extends AppCompatActivity {
         comfortText = (TextView) findViewById(R.id.comfort_text);
         carWashText = (TextView) findViewById(R.id.car_wash_text);
         sportText = (TextView) findViewById(R.id.sport_text);
+        imageView = (ImageView) findViewById(R.id.backgroundimage);
 
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
         String weatherstring = sharedPreferences.getString("weathercache", null);
+        String bingpicture = sharedPreferences.getString("piccache", null);
+        if (bingpicture != null) {
+            Glide.with(this).load(bingpicture).into(imageView);
+        } else {
+            loadPic();
+        }
         if (weatherstring != null) {
             Weather weather = HandleDataFroService.handleWeatherData(weatherstring);
             showWeatherInfo(weather);
@@ -66,38 +82,40 @@ public class WeatherActivity extends AppCompatActivity {
 
     }
 
+
     private void requestWeather(String weather_id) {
         HttpUtil.sendOkHttpRequest("http://guolin.tech/api/weather?cityid=" +
-                weather_id +
-           //     "&key=888969ca66e143c684c19f8dee814f32"
-                "&key=bc0418b57b2d4918819d3974ac1285d9"
+                        weather_id +
+                        //     "&key=888969ca66e143c684c19f8dee814f32"
+                        "&key=bc0418b57b2d4918819d3974ac1285d9"
                 , new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                runOnUiThread(new Runnable() {
                     @Override
-                    public void run() {
-                        Toast.makeText(WeatherActivity.this, "获取天气信息失败...", Toast.LENGTH_LONG).show();
+                    public void onFailure(Call call, IOException e) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Toast.makeText(WeatherActivity.this, "获取天气信息失败...", Toast.LENGTH_LONG).show();
+                            }
+                        });
                     }
-                });
-            }
 
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                final String responseText = response.body().string();
-                final Weather w = HandleDataFroService.handleWeatherData(responseText);
-                runOnUiThread(new Runnable() {
                     @Override
-                    public void run() {
-                        if (w != null && "ok".equals(w.status)) {
-                            SharedPreferences share = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
-                            share.edit().putString("weathercache", responseText).apply();
-                            showWeatherInfo(w);
-                        }
+                    public void onResponse(Call call, Response response) throws IOException {
+                        final String responseText = response.body().string();
+                        final Weather w = HandleDataFroService.handleWeatherData(responseText);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (w != null && "ok".equals(w.status)) {
+                                    SharedPreferences share = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
+                                    share.edit().putString("weathercache", responseText).apply();
+                                    showWeatherInfo(w);
+                                }
+                            }
+                        });
                     }
                 });
-            }
-        });
+        loadPic();
     }
 
     private void showWeatherInfo(Weather weather) {
@@ -136,4 +154,37 @@ public class WeatherActivity extends AppCompatActivity {
 //        Intent intent = new Intent(this, AutoUpdateService.class);
 //        startService(intent);
     }
+
+    private void loadPic() {
+
+        String url = "http://guolin.tech/api/bing_pic";
+        HttpUtil.sendOkHttpRequest(url, new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(WeatherActivity.this, "加载图片失败....", Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+
+                final String pic = response.body().string();
+                SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
+                sharedPreferences.edit().putString("piccache", pic).apply();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Glide.with(WeatherActivity.this).load(pic).into(imageView);
+                    }
+                });
+            }
+        });
+
+
+    }
+
 }
