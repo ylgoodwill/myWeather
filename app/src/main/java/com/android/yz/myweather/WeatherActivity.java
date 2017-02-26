@@ -1,5 +1,9 @@
 package com.android.yz.myweather;
 
+import android.app.Activity;
+import android.app.ActivityManager;
+import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
@@ -9,6 +13,7 @@ import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageButton;
@@ -20,11 +25,13 @@ import android.widget.Toast;
 
 import com.android.yz.myweather.gson.Forecast;
 import com.android.yz.myweather.gson.Weather;
+import com.android.yz.myweather.service.UpdateService;
 import com.android.yz.myweather.util.HandleDataFroService;
 import com.android.yz.myweather.util.HttpUtil;
 import com.bumptech.glide.Glide;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -79,6 +86,7 @@ public class WeatherActivity extends AppCompatActivity {
         imageView = (ImageView) findViewById(R.id.backgroundimage);
 
         final String weatherId;
+
         swipeRefreshLayout.setColorSchemeResources(R.color.colorPrimary);
 
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
@@ -102,7 +110,9 @@ public class WeatherActivity extends AppCompatActivity {
         swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                requestWeather(weatherId);
+                Weather we = HandleDataFroService.handleWeatherData(PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).getString("weathercache", null));
+                String wea_id = we.basic.weatherId;
+                requestWeather(wea_id);
             }
         });
     }
@@ -116,11 +126,11 @@ public class WeatherActivity extends AppCompatActivity {
         } else super.onBackPressed();
     }
 
-    public void requestWeather(String weather_id) {
-        HttpUtil.sendOkHttpRequest("http://guolin.tech/api/weather?cityid=" +
-                        weather_id +
-                        //     "&key=888969ca66e143c684c19f8dee814f32"
-                        "&key=bc0418b57b2d4918819d3974ac1285d9"
+    public void requestWeather(final String weather_id) {
+        String url = "http://guolin.tech/api/weather?cityid=" + weather_id + "&key=888969ca66e143c684c19f8dee814f32";
+        Log.e("111", url);
+        HttpUtil.sendOkHttpRequest(url
+                //"&key=bc0418b57b2d4918819d3974ac1285d9"
                 , new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
@@ -183,13 +193,22 @@ public class WeatherActivity extends AppCompatActivity {
         }
         String comfort = "舒适度：" + weather.suggestion.comfort.info;
         String carWash = "洗车指数：" + weather.suggestion.carWash.info;
-        String sport = "运行建议：" + weather.suggestion.sport.info;
+        String sport = "出行建议：" + weather.suggestion.sport.info;
         comfortText.setText(comfort);
         carWashText.setText(carWash);
         sportText.setText(sport);
         weatherLayout.setVisibility(View.VISIBLE);
-//        Intent intent = new Intent(this, AutoUpdateService.class);
-//        startService(intent);
+
+
+        if(!this.isWorked("com.android.yz.myweather.service.UpdateService")){
+            Intent intent = new Intent(this, UpdateService.class);
+            // 启动Service
+            startService(intent);
+            Log.e("111", "开始启动服务！！");
+        }
+        else{
+            Log.e("111", "服务已经启动了！！");
+        }
     }
 
     private void loadPic() {
@@ -224,4 +243,18 @@ public class WeatherActivity extends AppCompatActivity {
 
     }
 
+    private boolean isWorked(String className) {
+        ActivityManager myManager = (ActivityManager) WeatherActivity.this
+                .getApplicationContext().getSystemService(
+                        Context.ACTIVITY_SERVICE);
+        ArrayList<ActivityManager.RunningServiceInfo> runningService = (ArrayList<ActivityManager.RunningServiceInfo>) myManager
+                .getRunningServices(20);
+        for (int i = 0; i < runningService.size(); i++) {
+            if (runningService.get(i).service.getClassName().toString()
+                    .equals(className)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
